@@ -1,6 +1,6 @@
 import os
 import subprocess
-from PIL import Image
+from PIL import Image, ExifTags
 import errno
 import time
 
@@ -9,8 +9,29 @@ TOTAL_ORIGINAL = 0
 TOTAL_COMPRESSED = 0
 TOTAL_GAIN = 0
 TOTAL_FILES = 0
-QUALITY = 20  # Set quality to the lowest possible
+QUALITY = 15  # Set quality to the lowest possible
 
+def exif_transpose(img):
+    """
+    Apply image transpose using EXIF orientation data.
+    """
+    try:
+        for orientation in ExifTags.TAGS.keys():
+            if ExifTags.TAGS[orientation] == 'Orientation':
+                break
+        exif = img._getexif()
+        if exif is not None:
+            orientation = exif.get(orientation)
+            if orientation == 3:
+                img = img.rotate(180, expand=True)
+            elif orientation == 6:
+                img = img.rotate(270, expand=True)
+            elif orientation == 8:
+                img = img.rotate(90, expand=True)
+    except (AttributeError, KeyError, IndexError):
+        # Cases: image don't have getexif
+        pass
+    return img
 
 def compress(location):
     for r, d, f in os.walk(location):
@@ -32,6 +53,7 @@ def compress(location):
                     
                     try:
                         opt = Image.open(input_path)
+                        opt = exif_transpose(opt)  # Correct the orientation
                     except Exception as e:
                         print(f'Skipping file, cannot open: {input_path} - {e}')
                         continue
